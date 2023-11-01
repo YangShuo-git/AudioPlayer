@@ -1,24 +1,22 @@
 package com.example.musicplayer;
 
-import static com.example.musicplayer.service.MusicService.ACTION_OPT_MUSIC_VOLUME;
-
 import android.Manifest;
-import android.content.BroadcastReceiver;
 import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Environment;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.Message;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
-import com.example.musicplayer.service.MusicService;
+import com.example.musicplayer.audiotrack.MusicPlayerController;
+import com.example.musicplayer.opensles.SoundTrackController;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -29,8 +27,16 @@ public class MainActivityMusic extends AppCompatActivity {
     private static final String TAG = "MainActivityMusic";
     private Button audioTrackPlayBtn;
     private Button audioTrackStopBtn;
+
     /** 要播放的文件路径 **/
-    private static String playFilePath = "131.mp3";
+    private static String playFilePath = "CornfieldChase.mp3";
+
+    private MusicPlayerController audioTrackPlayerController;
+    private SoundTrackController openSLPlayerController;
+
+    public static final int UPDATE_PLAY_VOICE_PROGRESS = 730;
+    public static final int AUDIO_TRACK_PLAY_DONE = 740;
+    public static final int OPENSL_ES_PLAY_DONE = 750;
 
     public boolean checkPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && checkSelfPermission(
@@ -48,6 +54,7 @@ public class MainActivityMusic extends AppCompatActivity {
         setContentView(R.layout.activity_main_music);
         checkPermission();
 
+        /** 将文件复制到当前程序的路径 **/
         CopyAssets(getApplicationContext(), playFilePath,
                 getApplicationContext().getFilesDir().getAbsolutePath(), playFilePath);
         findView();
@@ -68,7 +75,7 @@ public class MainActivityMusic extends AppCompatActivity {
         @Override
         public void onClick(View v) {
             Log.i(TAG, "Click AudioTrack Play Btn");
-            if (null == audioTrackPlayerController) {
+            if (audioTrackPlayerController == null) {
                 audioTrackPlayerController = new MusicPlayerController();
                 audioTrackPlayerController.setHandler(handler);
                 audioTrackPlayerController.setOnCompletionListener(new SoundTrackController.OnCompletionListener() {
@@ -87,7 +94,6 @@ public class MainActivityMusic extends AppCompatActivity {
     };
 
     View.OnClickListener audioTrackStopBtnListener = new View.OnClickListener() {
-
         @Override
         public void onClick(View v) {
             Log.i(TAG, "Click AudioTrack Stop Btn");
@@ -99,44 +105,68 @@ public class MainActivityMusic extends AppCompatActivity {
         }
     };
 
-    @Override
-    public void onClick(View v) {
+    View.OnClickListener openSLESPlayBtnListener = new View.OnClickListener() {
+        @Override
+        public void onClick(View v) {
+            Log.i(TAG, "Click OpenSL ES Play Btn");
+            if (null == openSLPlayerController) {
+                // OpenSL ES初始化播放器
+                openSLPlayerController = new SoundTrackController();
+                openSLPlayerController.setOnCompletionListener(new SoundTrackController.OnCompletionListener() {
+                    @Override
+                    public void onCompletion() {
+                        // 发消息随后去执行结束PLAYER，否则会卡死；Toast也是在后面做
+                        handler.sendMessage(handler.obtainMessage(
+                                OPENSL_ES_PLAY_DONE, 1, 1));
+                    }
+                });
+                String lplayFilePath = getApplicationContext().getFilesDir().getAbsolutePath() + File.separator + playFilePath;
+                openSLPlayerController.setAudioDataSource(lplayFilePath, 0.2f);
+                // OpenSL ES进行播放
+                openSLPlayerController.play();
+            }
+        }
+    };
 
-    }
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-    }
+    View.OnClickListener openSLESStopBtnListener = new View.OnClickListener() {
+        @Override
+        public void onClick(View v) {
+            Log.i(TAG, "Click OpenSL ES Stop Btn");
+            if (null != openSLPlayerController) {
+                openSLPlayerController.stop();
+                openSLPlayerController = null;
+            }
+        }
+    };
 
-    private void optMusic(final String action) {
-        LocalBroadcastManager.getInstance(this).sendBroadcast(new Intent(action));
-    }
-
-    private void play() {
-        optMusic(MusicService.ACTION_OPT_MUSIC_PLAY);
-    }
-    private void pause() {
-        optMusic(MusicService.ACTION_OPT_MUSIC_PAUSE);
-    }
-    public void resume( ) {
-        optMusic(MusicService.ACTION_OPT_MUSIC_RESUME);
-    }
-    private void seekTo(int position) {
-        Intent intent = new Intent(MusicService.ACTION_OPT_MUSIC_SEEK_TO);
-        intent.putExtra(MusicService.PARAM_MUSIC_SEEK_TO,position);
-        LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
-    }
-    private void stop() {
-
-    }
-    public void speed(View view) {
-    }
-    public void pitch(View view) {
-    }
-    public void speedpitch(View view) {
-    }
-    public void normalspeedpitch(View view) {
-    }
+    private Handler handler = new Handler(Looper.getMainLooper()) {
+        @Override
+        public void handleMessage(Message msg) {
+            // 计算当前时间
+            // ?msg.arg2是有没有在播放?
+//            int _time = Math.max(msg.arg1, 0) / 1000;
+//            int total_time = Math.max(msg.arg2, 0) / 1000;
+//            float ratio = (float) _time / (float) total_time;
+            if (msg.what == AUDIO_TRACK_PLAY_DONE) {
+                Log.i(TAG, "AUDIO_TRACK_PLAY_DONE");
+                // 普通AudioTrack的停止播放
+                if (null != audioTrackPlayerController) {
+                    audioTrackPlayerController.stop();
+                    audioTrackPlayerController = null;
+                }
+                Toast.makeText(MainActivityMusic.this, "AUDIO TRACK 播放完成", Toast.LENGTH_SHORT).show();
+            } else if (msg.what == OPENSL_ES_PLAY_DONE) {
+                Log.i(TAG, "OPENSL_ES_PLAY_DONE");
+                if (null != openSLPlayerController) {
+                    openSLPlayerController.stop();
+                    openSLPlayerController = null;
+                }
+                Toast.makeText(MainActivityMusic.this, "OPENSL ES 播放完成", Toast.LENGTH_SHORT).show();
+            } else if (msg.what == UPDATE_PLAY_VOICE_PROGRESS){
+                Log.i(TAG, "Play Progress : " + msg.arg1 / 1000 + " seconds, playing " + msg.arg2);
+            }
+        }
+    };
 
     /**
      　　*

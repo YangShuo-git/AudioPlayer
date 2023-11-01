@@ -10,11 +10,8 @@ import java.util.TimerTask;
 
 public class MusicPlayerController implements SoundTrackController.OnCompletionListener {
     public static final int UPDATE_PLAY_VOICE_PROGRESS = 730;
-
     public MusicPlayer musicPlayer;
-
     private boolean isPlaying = false;
-
     private Timer mTimer;
     private TimerTask myTimerTask = null;
     private Handler mHander;

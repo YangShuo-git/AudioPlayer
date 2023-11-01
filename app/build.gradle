@@ -17,16 +17,16 @@ android {
         }
         externalNativeBuild {
             cmake {
-                cppFlags ""
+                cppFlags "-fexceptions", "-frtti"
                 abiFilters 'armeabi-v7a'
                 arguments "-DANDROID_STL=c++_shared"
             }
         }
-        sourceSets {
-            main {
-                jniLibs.srcDirs = ["src/main/cpp/jniLibs"]
-            }
-        }
+//        sourceSets {
+//            main {
+//                jniLibs.srcDirs = ["src/main/cpp/jniLibs"]
+//            }
+//        }
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 

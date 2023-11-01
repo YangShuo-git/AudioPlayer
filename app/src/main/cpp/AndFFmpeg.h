@@ -11,7 +11,7 @@
 
 
 extern "C" {
-#include "include/libavformat/avformat.h"
+#include "3rdparty/include/libavformat/avformat.h"
 }
 
 class AndFFmpeg {

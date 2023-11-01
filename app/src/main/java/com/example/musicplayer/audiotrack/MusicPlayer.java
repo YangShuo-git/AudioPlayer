@@ -9,20 +9,18 @@ import com.example.musicplayer.opensles.SoundTrackController;
 import java.io.File;
 
 public class MusicPlayer {
-
     public static final String TAG = "MusicPlayer";
     private static final int BITS_PER_BYTE = 8;
     private static final int BITS_PER_CHANNEL = 16;
     private static final int CHANNEL_PER_FRAME = 2;
     private MusicDecoder decoder;
-
     private AudioTrack audioTrack;
     /** 用于在暂停时候，播放空数据 **/
 
     /** default mp3's bitRate is 64kbps **/
     private int bitRate = 64000;
     /** mp3's capacityPerSec default is 8000B **/
-    private int mp3CapacityPerSec = 8000;
+    private int musicCapacityPerSec = 8000;
     private long totalCapacity = -1;
     /** default mp3's decode buffer is 2 times than play buffer **/
     private static int DECODE_BUFFER_SIZE = 16 * 1024;
@@ -35,10 +33,10 @@ public class MusicPlayer {
 
     /**
      * 播放状态
+     * 表示用户有没有按下stop
+     * isPlaying真正表示状态
      */
-    // 表示用户有没有按下stop
     private volatile boolean isStop = false;
-    // 真正表示状态
     private volatile boolean isPlaying = false;
 
     /** 用于标识seek到的时间 **/
@@ -50,12 +48,11 @@ public class MusicPlayer {
     public void setOnCompletionListener(SoundTrackController.OnCompletionListener onCompletionListener){
         this.onCompletionListener = onCompletionListener;
     }
-
     public void setAudioStreamType(int audioStreamType) {
         this.audioStreamType = audioStreamType;
     }
 
-    /** 初始化mp3 解码器以及初始化一些metaData **/
+    /** 初始化 解码器、metaData **/
     public boolean setDataSource(String path) {
         decoder = new MusicDecoder();
         boolean result = initMetaData(path);
@@ -67,24 +64,26 @@ public class MusicPlayer {
 
     private boolean initMetaData(String path) {
         int[] metaArray = new int[] { 0, 0 };
+
         decoder.getMusicMetaByPath(path, metaArray);
         this.sampleRateInHz = metaArray[0];
         this.bitRate = metaArray[1];
         if (sampleRateInHz <= 0 || bitRate <= 0) {
             return false;
         }
+
         totalCapacity = (new File(path)).length();
-        mp3CapacityPerSec = bitRate / BITS_PER_BYTE;
-        if (mp3CapacityPerSec == 0) {
+        musicCapacityPerSec = bitRate / BITS_PER_BYTE;
+        if (musicCapacityPerSec == 0) {
             return false;
         }
-        duration = (int) (totalCapacity / mp3CapacityPerSec);
+
+        duration = (int) (totalCapacity / musicCapacityPerSec);
         Log.d(TAG, "initMetaData, duration: " + duration);
         int byteCountPerSec = sampleRateInHz * CHANNEL_PER_FRAME * BITS_PER_CHANNEL / BITS_PER_BYTE;
         DECODE_BUFFER_SIZE = (int) ((byteCountPerSec / 2) * 0.2);
 
         initPlayState();
-
         seekBaseMillsTime = 0;
         audioTrackBaseHeadPosition = 0;
 
@@ -103,17 +102,16 @@ public class MusicPlayer {
         isStop = false;
     }
 
-    private void startPlayerThread() {
-        playerThread = new Thread(new PlayerThread(), "MusicPlayerThread");
-        playerThread.start();
-    }
-
-    @SuppressWarnings("deprecation")
     private void initAudioTrack() {
         int bufferSize = AudioTrack.getMinBufferSize(sampleRateInHz, channelConfig, audioFormat);
         // new AudioTrack.Builder() 需要API 23，而工程是API 21
         audioTrack = new AudioTrack(this.audioStreamType, sampleRateInHz, channelConfig, audioFormat, bufferSize,
                 AudioTrack.MODE_STREAM);
+    }
+
+    private void startPlayerThread() {
+        playerThread = new Thread(new PlayerThread(), "MusicPlayerThread");
+        playerThread.start();
     }
 
     public void start() {
@@ -236,7 +234,6 @@ public class MusicPlayer {
                 e.printStackTrace();
             }
             samples = null;
-
             // Log.i(TAG, "end Native Mp3 player thread...");
         }
     }
