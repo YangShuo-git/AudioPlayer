@@ -15,9 +15,6 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.example.musicplayer.audiotrack.MusicPlayerController;
-import com.example.musicplayer.opensles.SoundTrackController;
-
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
@@ -30,9 +27,6 @@ public class MainActivityMusic extends AppCompatActivity {
 
     /** 要播放的文件路径 **/
     private static String playFilePath = "CornfieldChase.mp3";
-
-    private MusicPlayerController audioTrackPlayerController;
-    private SoundTrackController openSLPlayerController;
 
     public static final int UPDATE_PLAY_VOICE_PROGRESS = 730;
     public static final int AUDIO_TRACK_PLAY_DONE = 740;
@@ -75,21 +69,6 @@ public class MainActivityMusic extends AppCompatActivity {
         @Override
         public void onClick(View v) {
             Log.i(TAG, "Click AudioTrack Play Btn");
-            if (audioTrackPlayerController == null) {
-                audioTrackPlayerController = new MusicPlayerController();
-                audioTrackPlayerController.setHandler(handler);
-                audioTrackPlayerController.setOnCompletionListener(new SoundTrackController.OnCompletionListener() {
-                    @Override
-                    public void onCompletion() {
-                        // 发消息随后去执行结束PLAYER，否则会卡死；Toast也是在后面做
-                        handler.sendMessage(handler.obtainMessage(
-                                AUDIO_TRACK_PLAY_DONE, 1, 1));
-                    }
-                });
-                String lplayFilePath = getApplicationContext().getFilesDir().getAbsolutePath() + File.separator + playFilePath;
-                audioTrackPlayerController.setAudioDataSource(lplayFilePath);
-                audioTrackPlayerController.start();
-            }
         }
     };
 
@@ -98,73 +77,6 @@ public class MainActivityMusic extends AppCompatActivity {
         public void onClick(View v) {
             Log.i(TAG, "Click AudioTrack Stop Btn");
             // 普通AudioTrack的停止播放
-            if (null != audioTrackPlayerController) {
-                audioTrackPlayerController.stop();
-                audioTrackPlayerController = null;
-            }
-        }
-    };
-
-    View.OnClickListener openSLESPlayBtnListener = new View.OnClickListener() {
-        @Override
-        public void onClick(View v) {
-            Log.i(TAG, "Click OpenSL ES Play Btn");
-            if (null == openSLPlayerController) {
-                // OpenSL ES初始化播放器
-                openSLPlayerController = new SoundTrackController();
-                openSLPlayerController.setOnCompletionListener(new SoundTrackController.OnCompletionListener() {
-                    @Override
-                    public void onCompletion() {
-                        // 发消息随后去执行结束PLAYER，否则会卡死；Toast也是在后面做
-                        handler.sendMessage(handler.obtainMessage(
-                                OPENSL_ES_PLAY_DONE, 1, 1));
-                    }
-                });
-                String lplayFilePath = getApplicationContext().getFilesDir().getAbsolutePath() + File.separator + playFilePath;
-                openSLPlayerController.setAudioDataSource(lplayFilePath, 0.2f);
-                // OpenSL ES进行播放
-                openSLPlayerController.play();
-            }
-        }
-    };
-
-    View.OnClickListener openSLESStopBtnListener = new View.OnClickListener() {
-        @Override
-        public void onClick(View v) {
-            Log.i(TAG, "Click OpenSL ES Stop Btn");
-            if (null != openSLPlayerController) {
-                openSLPlayerController.stop();
-                openSLPlayerController = null;
-            }
-        }
-    };
-
-    private Handler handler = new Handler(Looper.getMainLooper()) {
-        @Override
-        public void handleMessage(Message msg) {
-            // 计算当前时间
-            // ?msg.arg2是有没有在播放?
-//            int _time = Math.max(msg.arg1, 0) / 1000;
-//            int total_time = Math.max(msg.arg2, 0) / 1000;
-//            float ratio = (float) _time / (float) total_time;
-            if (msg.what == AUDIO_TRACK_PLAY_DONE) {
-                Log.i(TAG, "AUDIO_TRACK_PLAY_DONE");
-                // 普通AudioTrack的停止播放
-                if (null != audioTrackPlayerController) {
-                    audioTrackPlayerController.stop();
-                    audioTrackPlayerController = null;
-                }
-                Toast.makeText(MainActivityMusic.this, "AUDIO TRACK 播放完成", Toast.LENGTH_SHORT).show();
-            } else if (msg.what == OPENSL_ES_PLAY_DONE) {
-                Log.i(TAG, "OPENSL_ES_PLAY_DONE");
-                if (null != openSLPlayerController) {
-                    openSLPlayerController.stop();
-                    openSLPlayerController = null;
-                }
-                Toast.makeText(MainActivityMusic.this, "OPENSL ES 播放完成", Toast.LENGTH_SHORT).show();
-            } else if (msg.what == UPDATE_PLAY_VOICE_PROGRESS){
-                Log.i(TAG, "Play Progress : " + msg.arg1 / 1000 + " seconds, playing " + msg.arg2);
-            }
         }
     };
 
